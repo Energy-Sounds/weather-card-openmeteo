@@ -24,6 +24,20 @@ class WeatherCardOpenMeteo extends HTMLElement {
     this._searchTimeout = null;
   }
 
+  // ── Lovelace Editor-Integration ────────────────────────────────────────────
+
+  static getConfigElement() {
+    return document.createElement('weather-card-openmeteo-editor');
+  }
+
+  static getStubConfig() {
+    return {
+      location_name: 'Deutschlandsberg',
+      lat: 46.8189,
+      lon: 15.0686,
+    };
+  }
+
   // ── Lovelace lifecycle ──────────────────────────────────────────────────────
 
   setConfig(config) {
@@ -505,9 +519,224 @@ class WeatherCardOpenMeteo extends HTMLElement {
   }
 }
 
-// Custom Element registrieren
+// ── Grafischer Karten-Editor ──────────────────────────────────────────────────
+
+class WeatherCardOpenMeteoEditor extends HTMLElement {
+  constructor() {
+    super();
+    this.attachShadow({ mode: 'open' });
+    this._config = {};
+    this._searching = false;
+    this._results = [];
+  }
+
+  setConfig(config) {
+    this._config = { ...config };
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+  }
+
+  _fireChanged(patch) {
+    this._config = { ...this._config, ...patch };
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: this._config },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  async _search(query) {
+    if (!query.trim()) return;
+    this._searching = true;
+    this._results = [];
+    this._renderResults();
+
+    const params = new URLSearchParams({
+      name: query.trim(), count: 5, language: 'de', format: 'json',
+    });
+    try {
+      const res  = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`);
+      const data = await res.json();
+      this._results = data.results || [];
+    } catch {
+      this._results = [];
+    }
+    this._searching = false;
+    this._renderResults();
+  }
+
+  _renderResults() {
+    const list = this.shadowRoot.getElementById('results');
+    if (!list) return;
+
+    if (this._searching) {
+      list.innerHTML = `<div class="hint">Suche läuft…</div>`;
+      return;
+    }
+    if (!this._results.length) {
+      list.innerHTML = `<div class="hint">Keine Ergebnisse.</div>`;
+      return;
+    }
+
+    list.innerHTML = this._results.map((r, i) => `
+      <div class="result-item" data-index="${i}">
+        <span class="r-name">${r.name}</span>
+        <span class="r-info">${[r.admin1, r.country].filter(Boolean).join(', ')}</span>
+        <span class="r-coords">${r.latitude.toFixed(4)}, ${r.longitude.toFixed(4)}</span>
+      </div>
+    `).join('');
+
+    list.querySelectorAll('.result-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const r = this._results[parseInt(el.dataset.index)];
+        const name = [r.name, r.admin1, r.country].filter(Boolean).join(', ');
+        this._fireChanged({ location_name: name, lat: r.latitude, lon: r.longitude });
+        list.innerHTML = '';
+        this.shadowRoot.getElementById('search-input').value = '';
+        this._render();
+      });
+    });
+  }
+
+  _render() {
+    const c = this._config;
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { display: block; font-family: var(--primary-font-family, sans-serif); }
+        .editor { padding: 4px 0; display: flex; flex-direction: column; gap: 14px; }
+
+        label { font-size: 0.82em; color: var(--secondary-text-color, #888); margin-bottom: 3px; display: block; }
+
+        .field { display: flex; flex-direction: column; }
+
+        input[type="text"], input[type="number"] {
+          padding: 8px 10px;
+          border-radius: 8px;
+          border: 1px solid var(--divider-color, #444);
+          background: var(--card-background-color, #1c1c2e);
+          color: var(--primary-text-color, #e0e0e0);
+          font-size: 0.95em;
+          width: 100%;
+          box-sizing: border-box;
+          outline: none;
+        }
+        input:focus { border-color: var(--primary-color, #03a9f4); }
+
+        .coords { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        .search-row { display: flex; gap: 8px; }
+        .search-row input { flex: 1; }
+        button {
+          padding: 8px 14px;
+          border-radius: 8px;
+          border: none;
+          background: var(--primary-color, #03a9f4);
+          color: #fff;
+          cursor: pointer;
+          font-size: 0.9em;
+          white-space: nowrap;
+        }
+        button:hover { opacity: 0.85; }
+
+        #results { margin-top: 4px; }
+        .result-item {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+          padding: 8px 10px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: background 0.15s;
+        }
+        .result-item:hover { background: var(--secondary-background-color, rgba(255,255,255,0.06)); }
+        .r-name { font-weight: 600; font-size: 0.95em; }
+        .r-info { flex: 1; font-size: 0.82em; color: var(--secondary-text-color, #888); }
+        .r-coords { font-size: 0.75em; color: var(--disabled-text-color, #666); }
+        .hint { padding: 6px 10px; font-size: 0.85em; color: var(--secondary-text-color, #888); }
+
+        .current-location {
+          padding: 8px 12px;
+          border-radius: 8px;
+          background: var(--secondary-background-color, rgba(255,255,255,0.05));
+          font-size: 0.88em;
+        }
+        .current-location strong { color: var(--primary-text-color, #e0e0e0); }
+        .current-location span { color: var(--secondary-text-color, #888); font-size: 0.9em; }
+
+        .divider {
+          border: none;
+          border-top: 1px solid var(--divider-color, rgba(255,255,255,0.08));
+        }
+      </style>
+
+      <div class="editor">
+        <!-- Aktueller Standort -->
+        <div class="current-location">
+          📍 <strong>${c.location_name || '—'}</strong><br>
+          <span>Lat: ${c.lat ?? '—'} &nbsp; Lon: ${c.lon ?? '—'}</span>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Ortssuche -->
+        <div class="field">
+          <label>Ort suchen</label>
+          <div class="search-row">
+            <input type="text" id="search-input" placeholder="z. B. Graz, Wien, Berlin…" autocomplete="off" />
+            <button id="search-btn">Suchen</button>
+          </div>
+          <div id="results"></div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Manuelle Felder -->
+        <div class="field">
+          <label>Angezeigter Ortsname</label>
+          <input type="text" id="loc-name" value="${c.location_name || ''}" placeholder="z. B. Deutschlandsberg" />
+        </div>
+        <div class="coords">
+          <div class="field">
+            <label>Breitengrad (Lat)</label>
+            <input type="number" id="lat" value="${c.lat ?? ''}" step="0.0001" placeholder="46.8189" />
+          </div>
+          <div class="field">
+            <label>Längengrad (Lon)</label>
+            <input type="number" id="lon" value="${c.lon ?? ''}" step="0.0001" placeholder="15.0686" />
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Events
+    const root = this.shadowRoot;
+
+    root.getElementById('search-btn').addEventListener('click', () => {
+      const q = root.getElementById('search-input').value;
+      if (q) this._search(q);
+    });
+    root.getElementById('search-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); this._search(e.target.value); }
+    });
+
+    root.getElementById('loc-name').addEventListener('change', e =>
+      this._fireChanged({ location_name: e.target.value }));
+    root.getElementById('lat').addEventListener('change', e =>
+      this._fireChanged({ lat: parseFloat(e.target.value) }));
+    root.getElementById('lon').addEventListener('change', e =>
+      this._fireChanged({ lon: parseFloat(e.target.value) }));
+  }
+}
+
+// Custom Elements registrieren
 if (!customElements.get('weather-card-openmeteo')) {
   customElements.define('weather-card-openmeteo', WeatherCardOpenMeteo);
+}
+if (!customElements.get('weather-card-openmeteo-editor')) {
+  customElements.define('weather-card-openmeteo-editor', WeatherCardOpenMeteoEditor);
 }
 
 // Karte in Lovelace-Custom-Card-Liste eintragen (für den UI-Editor)
