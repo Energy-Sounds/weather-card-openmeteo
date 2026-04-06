@@ -1,0 +1,6 @@
+{
+  "name": "Wetterkarte Open-Meteo",
+  "content_in_root": true,
+  "render_readme": true,
+  "filename": "weather-card-openmeteo.js"
+}

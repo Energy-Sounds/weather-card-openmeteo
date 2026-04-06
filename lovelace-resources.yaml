@@ -1,0 +1,16 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# Lovelace Ressource (alternative Methode via configuration.yaml)
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# In configuration.yaml einfügen, falls keine UI-Ressourcenverwaltung:
+#
+# lovelace:
+#   mode: yaml        # oder storage, je nach Setup
+#   resources:
+#     - url: /local/weather-card-openmeteo.js
+#       type: module
+
+lovelace:
+  resources:
+    - url: /local/weather-card-openmeteo.js
+      type: module

@@ -1,0 +1,28 @@
+# Automatischer Release-Workflow
+# Wird ausgelöst, wenn ein Tag wie "v1.0.0" gepusht wird.
+# Erstellt einen GitHub Release und hängt die JS-Datei als Asset an.
+# HACS kann dann Versionen erkennen und Updates anbieten.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: GitHub Release erstellen
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Release erstellen und JS-Datei anhängen
+        uses: softprops/action-gh-release@v2
+        with:
+          files: weather-card-openmeteo.js
+          generate_release_notes: true
