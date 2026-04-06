@@ -194,23 +194,12 @@ class WeatherCardOpenMeteo extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${this._getStyles()}</style>
       <ha-card>
-        <!-- Kopfzeile mit Suche -->
+        <!-- Kopfzeile -->
         <div class="card-header">
           <div class="header-top">
             <span class="header-icon">🌍</span>
-            <span id="location-display" class="location-name">${this._locationName}</span>
-            <button class="search-toggle" id="search-toggle" title="Ort ändern">✏️</button>
+            <span class="location-name">${this._locationName}</span>
             <button class="refresh-btn" id="refresh-btn" title="Aktualisieren">🔄</button>
-          </div>
-          <div class="search-box" id="search-box" style="display:none">
-            <input
-              type="text"
-              id="search-input"
-              placeholder="Ort eingeben und Enter drücken…"
-              class="search-input"
-              autocomplete="off"
-            />
-            <button class="search-btn" id="search-btn">Suchen</button>
           </div>
         </div>
 
@@ -304,37 +293,6 @@ class WeatherCardOpenMeteo extends HTMLElement {
 
   _bindEvents() {
     const root = this.shadowRoot;
-
-    // Suche ein-/ausblenden
-    root.getElementById('search-toggle')?.addEventListener('click', () => {
-      const box   = root.getElementById('search-box');
-      const input = root.getElementById('search-input');
-      if (box.style.display === 'none') {
-        box.style.display = 'flex';
-        input?.focus();
-      } else {
-        box.style.display = 'none';
-      }
-    });
-
-    // Suche ausführen per Button
-    root.getElementById('search-btn')?.addEventListener('click', () => {
-      const q = root.getElementById('search-input')?.value;
-      if (q) this._geocodeLocation(q);
-    });
-
-    // Suche ausführen per Enter
-    root.getElementById('search-input')?.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const q = e.target.value;
-        if (q) {
-          root.getElementById('search-box').style.display = 'none';
-          this._geocodeLocation(q);
-        }
-      }
-    });
-
-    // Aktualisieren
     root.getElementById('refresh-btn')?.addEventListener('click', () => this._fetchWeather());
   }
 
@@ -376,7 +334,7 @@ class WeatherCardOpenMeteo extends HTMLElement {
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      .search-toggle, .refresh-btn {
+      .refresh-btn {
         background: rgba(255,255,255,0.1);
         border: none;
         border-radius: 8px;
@@ -386,40 +344,9 @@ class WeatherCardOpenMeteo extends HTMLElement {
         transition: background 0.2s;
         color: inherit;
       }
-      .search-toggle:hover, .refresh-btn:hover {
+      .refresh-btn:hover {
         background: rgba(255,255,255,0.2);
       }
-      .search-box {
-        display: flex;
-        gap: 8px;
-        margin-top: 10px;
-      }
-      .search-input {
-        flex: 1;
-        padding: 8px 12px;
-        border-radius: 8px;
-        border: 1px solid rgba(168, 212, 245, 0.4);
-        background: rgba(0,0,0,0.3);
-        color: #e0e0e0;
-        font-size: 0.9em;
-        outline: none;
-      }
-      .search-input:focus {
-        border-color: #a8d4f5;
-        box-shadow: 0 0 0 2px rgba(168,212,245,0.2);
-      }
-      .search-btn {
-        padding: 8px 14px;
-        border-radius: 8px;
-        border: none;
-        background: #2a6496;
-        color: #fff;
-        cursor: pointer;
-        font-size: 0.9em;
-        white-space: nowrap;
-        transition: background 0.2s;
-      }
-      .search-btn:hover { background: #3a7ab8; }
 
       /* ── Ladezustand / Fehler ── */
       .status {
