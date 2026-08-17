@@ -35,6 +35,7 @@ class WeatherCardOpenMeteo extends HTMLElement {
       location_name: 'Deutschlandsberg',
       lat: 46.8189,
       lon: 15.0686,
+      show_header: false,
     };
   }
 
@@ -208,14 +209,14 @@ class WeatherCardOpenMeteo extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>${this._getStyles()}</style>
       <ha-card>
-        <!-- Kopfzeile -->
+        ${this._config.show_header ? `
         <div class="card-header">
           <div class="header-top">
             <span class="header-icon">🌍</span>
             <span class="location-name">${this._locationName}</span>
             <button class="refresh-btn" id="refresh-btn" title="Aktualisieren">🔄</button>
           </div>
-        </div>
+        </div>` : ''}
 
         <!-- Karteninhalt (wird durch _updateStatus oder _renderBody ersetzt) -->
         <div id="card-body">
@@ -307,7 +308,9 @@ class WeatherCardOpenMeteo extends HTMLElement {
 
   _bindEvents() {
     const root = this.shadowRoot;
-    root.getElementById('refresh-btn')?.addEventListener('click', () => this._fetchWeather());
+    if (this._config.show_header) {
+      root.getElementById('refresh-btn')?.addEventListener('click', () => this._fetchWeather());
+    }
   }
 
   // ── CSS ─────────────────────────────────────────────────────────────────────
@@ -670,6 +673,45 @@ class WeatherCardOpenMeteoEditor extends HTMLElement {
           border: none;
           border-top: 1px solid var(--divider-color, rgba(255,255,255,0.08));
         }
+
+        .toggle-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 4px 0;
+        }
+        .toggle-label { font-size: 0.92em; color: var(--primary-text-color, #e0e0e0); }
+        .toggle-sub   { font-size: 0.78em; color: var(--secondary-text-color, #888); }
+
+        /* HA-nativer Switch-Stil */
+        .toggle {
+          position: relative;
+          width: 40px;
+          height: 24px;
+          flex-shrink: 0;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .slider {
+          position: absolute;
+          inset: 0;
+          background: var(--disabled-color, #555);
+          border-radius: 24px;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+        .slider::before {
+          content: '';
+          position: absolute;
+          width: 18px;
+          height: 18px;
+          left: 3px;
+          top: 3px;
+          background: #fff;
+          border-radius: 50%;
+          transition: transform 0.2s;
+        }
+        input:checked + .slider { background: var(--primary-color, #03a9f4); }
+        input:checked + .slider::before { transform: translateX(16px); }
       </style>
 
       <div class="editor">
@@ -689,6 +731,20 @@ class WeatherCardOpenMeteoEditor extends HTMLElement {
             <button id="search-btn">Suchen</button>
           </div>
           <div id="results"></div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Kopfzeile Toggle -->
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Kopfzeile anzeigen</div>
+            <div class="toggle-sub">Standortname &amp; Aktualisieren-Button</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="show-header" ${c.show_header ? 'checked' : ''} />
+            <span class="slider"></span>
+          </label>
         </div>
 
         <hr class="divider">
@@ -722,6 +778,8 @@ class WeatherCardOpenMeteoEditor extends HTMLElement {
       if (e.key === 'Enter') { e.preventDefault(); this._search(e.target.value); }
     });
 
+    root.getElementById('show-header').addEventListener('change', e =>
+      this._fireChanged({ show_header: e.target.checked }));
     root.getElementById('loc-name').addEventListener('change', e =>
       this._fireChanged({ location_name: e.target.value }));
     root.getElementById('lat').addEventListener('change', e =>
