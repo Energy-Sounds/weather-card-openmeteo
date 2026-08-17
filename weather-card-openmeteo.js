@@ -36,6 +36,7 @@ class WeatherCardOpenMeteo extends HTMLElement {
       lat: 46.8189,
       lon: 15.0686,
       show_header: false,
+      precip_unit: 'mm',
     };
   }
 
@@ -233,11 +234,11 @@ class WeatherCardOpenMeteo extends HTMLElement {
   }
 
   _renderBody(d) {
-    const cur     = d.current;
-    const daily   = d.daily;
-    const weather = this._getWeatherInfo(cur.weather_code, cur.is_day === 1);
-
-    const windDir = this._getWindDirection(cur.wind_direction_10m);
+    const cur       = d.current;
+    const daily     = d.daily;
+    const weather   = this._getWeatherInfo(cur.weather_code, cur.is_day === 1);
+    const windDir   = this._getWindDirection(cur.wind_direction_10m);
+    const precipUnit = this._config.precip_unit === 'L' ? 'L/m²' : 'mm';
 
     let forecastHtml = '';
     for (let i = 0; i < daily.time.length; i++) {
@@ -253,7 +254,7 @@ class WeatherCardOpenMeteo extends HTMLElement {
             <span class="f-low">${Math.round(daily.temperature_2m_min[i])}°</span>
           </div>
           ${daily.precipitation_sum[i] > 0
-            ? `<div class="f-precip">💧 ${daily.precipitation_sum[i].toFixed(1)} mm</div>`
+            ? `<div class="f-precip">💧 ${daily.precipitation_sum[i].toFixed(1)} ${precipUnit}</div>`
             : '<div class="f-precip">&nbsp;</div>'}
         </div>`;
     }
@@ -285,7 +286,7 @@ class WeatherCardOpenMeteo extends HTMLElement {
           <div class="detail-item">
             <span class="detail-icon">🌧️</span>
             <span class="detail-label">Niederschlag</span>
-            <span class="detail-value">${cur.precipitation} mm</span>
+            <span class="detail-value">${cur.precipitation} ${precipUnit}</span>
           </div>
         </div>
       </div>
@@ -712,6 +713,28 @@ class WeatherCardOpenMeteoEditor extends HTMLElement {
         }
         input:checked + .slider { background: var(--primary-color, #03a9f4); }
         input:checked + .slider::before { transform: translateX(16px); }
+
+        .segment {
+          display: flex;
+          border-radius: 8px;
+          overflow: hidden;
+          border: 1px solid var(--divider-color, #444);
+        }
+        .segment button {
+          flex: 1;
+          padding: 7px 0;
+          border-radius: 0;
+          border: none;
+          background: transparent;
+          color: var(--secondary-text-color, #888);
+          font-size: 0.88em;
+          cursor: pointer;
+          transition: background 0.15s, color 0.15s;
+        }
+        .segment button.active {
+          background: var(--primary-color, #03a9f4);
+          color: #fff;
+        }
       </style>
 
       <div class="editor">
@@ -749,6 +772,17 @@ class WeatherCardOpenMeteoEditor extends HTMLElement {
 
         <hr class="divider">
 
+        <!-- Niederschlagseinheit -->
+        <div class="field">
+          <label>Niederschlagseinheit</label>
+          <div class="segment">
+            <button id="unit-mm" class="${(c.precip_unit || 'mm') === 'mm' ? 'active' : ''}">mm</button>
+            <button id="unit-L"  class="${c.precip_unit === 'L' ? 'active' : ''}">L/m²</button>
+          </div>
+        </div>
+
+        <hr class="divider">
+
         <!-- Manuelle Felder -->
         <div class="field">
           <label>Angezeigter Ortsname</label>
@@ -780,6 +814,10 @@ class WeatherCardOpenMeteoEditor extends HTMLElement {
 
     root.getElementById('show-header').addEventListener('change', e =>
       this._fireChanged({ show_header: e.target.checked }));
+    root.getElementById('unit-mm').addEventListener('click', () =>
+      this._fireChanged({ precip_unit: 'mm' }) || this._render());
+    root.getElementById('unit-L').addEventListener('click', () =>
+      this._fireChanged({ precip_unit: 'L' }) || this._render());
     root.getElementById('loc-name').addEventListener('change', e =>
       this._fireChanged({ location_name: e.target.value }));
     root.getElementById('lat').addEventListener('change', e =>
